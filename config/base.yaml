@@ -1,0 +1,9 @@
+seed: 1337
+project: clip-flickr30k
+p_dropout: 0.1
+lr: 1e-4
+p_train_len: 0.9
+
+betas:        [0.9,0.98]
+grad_clip:      1.0        # optional gradient clipping
+weight_decay: 0.02       # small weight decay to regularize

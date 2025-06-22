@@ -1,0 +1,38 @@
+name: first-run
+data_root: /workspace/flickr30k_entities
+
+# Model architecture
+img_size:       224        # Input resolution (square)
+patch_size:     32         # 224/32=7×7 patches
+embed_dim:      512        # ViT hidden size
+proj_dim:       512        # Final CLIP embedding size
+vision_depth:   6          # Number of Transformer blocks in vision encoder
+text_depth:     6          # Number of Transformer blocks in text encoder
+num_heads:      8          # Attention heads (512/8=64 head size)
+cw_size:        128 # Max caption length (OpenAI CLIP default)
+
+# Optimization
+batch_size:     32         # per‐GPU; increase if you have memory
+n_epochs:         2          # watch for overfitting
+
+# Contrastive specifics
+init_logit_scale: log(1/0.07)    # lets you start at temperature=0.07
+temperature:      0.07
+
+test_run: False
+sample_size: 400
+
+local_visualization: False
+save_model: False
+# save_model: True
+load_and_test_model: False
+# load_and_test_model: True
+# train_model: False
+train_model: True
+summary: False
+# summary: True
+
+compile: True
+
+artifact_name: jbarry-team/${project}/${name}-best-model:latest
+wandb_mode: disabled
