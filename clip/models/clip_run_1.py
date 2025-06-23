@@ -1,11 +1,17 @@
+import math
+import random
+import os
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import math
-from torchinfo import summary
+import matplotlib.pyplot as plt
+import transform.transformer_modules as tm
 
-import transformers.transformer_modules as tm
-from transformers import CLIPTokenizer
+from torchinfo import summary
+from torchvision import transforms
+from torch.utils.data import DataLoader, Dataset, random_split
+from PIL import Image
+
 
 class VisionTransformer(nn.Module):
     def __init__(
@@ -15,10 +21,7 @@ class VisionTransformer(nn.Module):
         super().__init__()
         self.patch_embed = tm.PatchEmbedding(img_size, patch_size, in_ch, embed_dim)
         self.transformer_blocks = nn.Sequential(
-            *[tm.TransformerBlock(
-                n_embd=embed_dim,
-                p_dropout=dropout,
-                n_heads=num_heads) for _ in range(depth)]
+            *[tm.TransformerBlock(embed_dim, dropout, num_heads) for _ in range(depth)]
         )
         self.norm = nn.LayerNorm(embed_dim)
     
@@ -27,6 +30,7 @@ class VisionTransformer(nn.Module):
         x = self.transformer_blocks(x)
         x = self.norm(x)
         return x[:, 0] # return cls_token
+
 
 class TextTransformer(nn.Module):
     def __init__(
@@ -40,67 +44,183 @@ class TextTransformer(nn.Module):
         dropout=0.1
     ):
         super().__init__()
+        self.eos_token = 49407
         self.token_embed = nn.Embedding(vocab_size, embed_dim)
         self.pos_embed = nn.Parameter(torch.zeros(1, cw_size, embed_dim))
         self.transformer_blocks = nn.Sequential(
-            *[tm.TransformerBlock(
-                n_embd=embed_dim,
-                p_dropout=dropout,
-                n_heads=num_heads) for _ in range(depth)]
+            *[tm.TransformerBlock(embed_dim, dropout, num_heads) for _ in range(depth)]
         )
         self.norm = nn.LayerNorm(embed_dim)
     
     def forward(self, tokens : torch.Tensor):
         # tokens.shape -> (B, L)
         B, L = tokens.shape
-        print(B, L)
         x = self.token_embed(tokens) # (B, L, embed_dim)
         x = x + self.pos_embed[:, :L, :] # (B, L, embed_dim)
         x = self.transformer_blocks(x) # (B, 50, 512)
         x = self.norm(x)  # (B, 50, 512)
-        # eos_id = tokenizer.eos_token_id
-        # eos_mask = tokens == eos_id
-        # eos_pos  = eos_mask.float().argmax(dim=-1)
-        # return x[torch.arange(B), eos_pos]
-        return x[0, :]
+        eos_mask = tokens.eq(self.eos_token)
+        eos_mask[:, -1] = True
+        eos_pos = eos_mask.int().argmax(dim=1)
+        return x[torch.arange(B), eos_pos]
 
 
 class CLIPModel(nn.Module):
     def __init__(
-        self
+        self, img_size=224, patch_size=32, vocab_size=49408, cw_size=77,
+        embed_dim=512, proj_dim=512, vision_depth=6, text_depth=6, num_heads=8
     ):
-        pass
+        super().__init__()
+        self.visual = VisionTransformer(
+            img_size=img_size, patch_size=patch_size, embed_dim=embed_dim,
+            depth=vision_depth, num_heads=num_heads
+        )
+        self.textual = TextTransformer(
+            vocab_size=vocab_size, cw_size=cw_size, embed_dim=embed_dim,
+            depth=text_depth, num_heads=num_heads
+        )
+        self.visual_proj = nn.Linear(embed_dim, proj_dim)
+        self.textual_proj = nn.Linear(embed_dim, proj_dim)
+        self.logit_scale = nn.Parameter(torch.ones([]) * math.log(1 / 0.07))
     
-    def forward(self, x):
-        return x
+    def forward(self, image, text):
+        i_features = self.visual(image)    # [B, embed_dim]
+        t_features = self.textual(text)    # [B, embed_dim]
+        # project
+        i_proj = self.visual_proj(i_features)  # [B, proj_dim]
+        t_proj = self.textual_proj(t_features) # [B, proj_dim]
+        # normalize
+        i_proj = F.normalize(i_proj, dim=-1)
+        t_proj = F.normalize(t_proj, dim=-1)
+        # scaled cosine similarity
+        logit_scale = self.logit_scale.exp()
+        logits = logit_scale * i_proj @ t_proj.t()
+        return logits, i_proj, t_proj
+    
+
+class ContrastiveLoss(nn.Module):
+    def __init__(self, temperature=0.07):
+        super().__init__()
+        self.temperature = temperature
+        self.loss_fn = nn.CrossEntropyLoss()
+
+    def forward(self, logits):
+        # logits: [B, B]
+        B = logits.size(0)
+        labels = torch.arange(B, device=logits.device)
+        loss_i2t = self.loss_fn(logits / self.temperature, labels)
+        loss_t2i = self.loss_fn(logits.t() / self.temperature, labels)
+        return (loss_i2t + loss_t2i) / 2
+
+
+class Flickr30kDataset(Dataset):
+    def __init__(self, images_root: str, captions_file: str, transform=None):
+        self.images_root = images_root
+        self.transform = transform
+
+        # Load captions: split on any whitespace (tab, space, etc.)
+        self.captions = {}
+        with open(captions_file, 'r') as f:
+            for line in f:
+                line = line.strip()
+                # Skip empty or comment lines
+                if not line or line.startswith('#'):
+                    continue
+                parts = line.split(None, 1)  # split on first whitespace
+                if len(parts) < 2:
+                    # malformed line, skip
+                    continue
+                img_id, caption = parts
+                # fn = img_id.split('#')[0]
+                fn = img_id.split('#')[0].strip().strip('",') 
+                self.captions.setdefault(fn, []).append(caption)
+        self.filenames = sorted(self.captions.keys())
+
+    def __len__(self):
+        return len(self.filenames)
+
+    def __getitem__(self, idx):
+        fn = self.filenames[idx]
+        img_path = os.path.join(self.images_root, fn)
+        print(f"img_path: {img_path}")
+        img = Image.open(img_path).convert("RGB")
+        if self.transform:
+            img = self.transform(img)
+        cap = random.choice(self.captions[fn])
+        return img, cap
+
+
+def collate_fn(batch):
+    # batch is list of (img_tensor, caption_str)
+    imgs, caps = zip(*batch)
+    imgs = torch.stack(imgs, dim=0)
+    return imgs, caps
+
+
+def test_data_loader():
+    # 1️⃣ Define your transforms
+    tf = transforms.Compose([
+        transforms.Resize((224, 224)),
+        transforms.ToTensor(),
+        # optionally add Normalize(...)
+    ])
+
+    # 2️⃣ Instantiate the dataset
+    dataset = Flickr30kDataset(
+        images_root="/Users/justinbarry/projects/flickr30k_entities/flickr30k/Images",
+        captions_file="/Users/justinbarry/projects/flickr30k_entities/flickr30k/captions.txt",
+        transform=tf
+    )
+
+    # 3️⃣ Split into train/val if you like
+    #    For example, 80/20 random split:
+    n = len(dataset)
+    n_train = int(n * 0.8)
+    n_val   = n - n_train
+    train_ds, val_ds = torch.utils.data.random_split(dataset, [n_train, n_val])
+
+    # 4️⃣ Build DataLoaders
+    train_loader = DataLoader(
+        train_ds, batch_size=32, shuffle=True,
+        num_workers=4, collate_fn=collate_fn
+    )
+    val_loader = DataLoader(
+        val_ds, batch_size=32, shuffle=False,
+        num_workers=4, collate_fn=collate_fn
+    )
+
+    # 5️⃣ Quick sanity check
+    imgs, caps = next(iter(train_loader))
+    print(f"Batch images: {imgs.shape}")     # e.g. torch.Size([32, 3, 224, 224])
+    print(f"Batch captions (first 3): {caps[:3]}")
+
+
+def init_testing():
+    model = VisionTransformer(img_size=224)
+    input = torch.zeros(1, 3, 224, 224)
+    out = model(input)
+    print(f"out.shape {out.shape}")
+
+    model = TextTransformer(vocab_size=3798, cw_size=77)
+    input = torch.zeros(20, 77, dtype=torch.long)
+    out = model(input)
+    print(f"out.shape {out.shape}")
+
+    # dummy inputs
+    batch_size, seq_len = 4, 16
+    dummy_imgs = torch.randn(batch_size, 3, 224, 224)
+    dummy_tokens = torch.randint(0, 49408, (batch_size, seq_len))
+
+    model = CLIPModel()
+    logits, i_emb, t_emb = model(dummy_imgs, dummy_tokens)
+    loss = ContrastiveLoss()(logits)
+    print(f"Logits shape: {logits.shape}, Loss: {loss.item():.4f}")
+
+
+def main():
+    # init_testing()
+    test_data_loader()
 
 
 if __name__ == "__main__":
-    # dummy inputs
-    # batch_size, seq_len = 4, 16
-    # dummy_imgs = torch.randn(batch_size, 3, 224, 224)
-    # dummy_tokens = torch.randint(0, 49408, (batch_size, seq_len))
-
-    # model = VisionTransformer(img_size=224)
-    # input = torch.zeros(1, 3, 224, 224)
-    # out = model(input)
-    # print(f"out.shape {out.shape}")
-
-    # model = TextTransformer(vocab_size=3798, cw_size=77)
-    # input = torch.zeros(20, 77, dtype=torch.long)
-    # out = model(input)
-    # print(f"out.shape {out.shape}")
-
-    # 1) Load the CLIP tokenizer
-    tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-base-patch32")
-
-    # 2) Inspect its special tokens
-    print("bos_token:", tokenizer.bos_token,       "→", tokenizer.bos_token_id)
-    print("eos_token:", tokenizer.eos_token,       "→", tokenizer.eos_token_id)
-    print("pad_token:", tokenizer.pad_token,       "→", tokenizer.pad_token_id)
-    print("unk_token:", tokenizer.unk_token,       "→", tokenizer.unk_token_id)
-
-    # model = CLIPModel()
-    # logits, i_emb, t_emb = model(dummy_imgs, dummy_tokens)
-    # loss = ContrastiveLoss()(logits)
-    # print(f"Logits shape: {logits.shape}, Loss: {loss.item():.4f}")
+    main()
