@@ -26,15 +26,9 @@ class PatchEmbed(nn.Module):
 
 class VisionTransformer(nn.Module):
     def __init__(self,
-                 img_size=224,
-                 patch_size=32,
-                 in_chans=3,
-                 embed_dim=512,
-                 depth=6,
-                 num_heads=8,
-                 mlp_ratio=4.0,
-                 qkv_bias=True,
-                 dropout=0.1):
+        img_size=224, patch_size=32, in_chans=3, embed_dim=512,
+        depth=6, num_heads=8, mlp_ratio=4.0, qkv_bias=True, dropout=0.1
+    ):
         super().__init__()
         self.patch_embed = PatchEmbed(img_size, patch_size, in_chans, embed_dim)
         encoder_layer = nn.TransformerEncoderLayer(d_model=embed_dim,
