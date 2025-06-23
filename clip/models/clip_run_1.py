@@ -157,6 +157,27 @@ def collate_fn(batch):
     return imgs, caps
 
 
+def show_random_samples_sequential(dataset, num_samples=5):
+    """
+    Displays num_samples random (image, caption) pairs one at a time.
+    Close each window to see the next.
+    """
+    idxs = random.sample(range(len(dataset)), num_samples)
+    for idx in idxs:
+        img, cap = dataset[idx]
+        # convert [C,H,W] tensor to HxWxC numpy
+        img_np = img.permute(1, 2, 0).cpu().numpy()
+        
+        plt.figure(figsize=(5, 5))
+        plt.imshow(img_np)
+        plt.title(cap, fontsize=12, wrap=True)
+        plt.axis("off")
+        
+        # This call will block until you close the window
+        plt.show()
+        plt.close()
+
+
 def test_data_loader():
     # 1️⃣ Define your transforms
     tf = transforms.Compose([
@@ -171,6 +192,8 @@ def test_data_loader():
         captions_file="/Users/justinbarry/projects/flickr30k_entities/flickr30k/captions.txt",
         transform=tf
     )
+
+    show_random_samples_sequential(dataset, num_samples=10)
 
     # 3️⃣ Split into train/val if you like
     #    For example, 80/20 random split:
