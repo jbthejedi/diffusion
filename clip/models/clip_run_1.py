@@ -12,6 +12,11 @@ from torchvision import transforms
 from torch.utils.data import DataLoader, Dataset, random_split
 from PIL import Image
 
+from utils import utils as u
+
+
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
 
 class VisionTransformer(nn.Module):
     def __init__(
@@ -179,14 +184,12 @@ def show_random_samples_sequential(dataset, num_samples=5):
 
 
 def test_data_loader():
-    # 1️⃣ Define your transforms
     tf = transforms.Compose([
         transforms.Resize((224, 224)),
         transforms.ToTensor(),
-        # optionally add Normalize(...)
+        # optional: add Norm
     ])
 
-    # 2️⃣ Instantiate the dataset
     dataset = Flickr30kDataset(
         images_root="/Users/justinbarry/projects/flickr30k_entities/flickr30k/Images",
         captions_file="/Users/justinbarry/projects/flickr30k_entities/flickr30k/captions.txt",
@@ -195,14 +198,11 @@ def test_data_loader():
 
     show_random_samples_sequential(dataset, num_samples=10)
 
-    # 3️⃣ Split into train/val if you like
-    #    For example, 80/20 random split:
     n = len(dataset)
     n_train = int(n * 0.8)
     n_val   = n - n_train
     train_ds, val_ds = torch.utils.data.random_split(dataset, [n_train, n_val])
 
-    # 4️⃣ Build DataLoaders
     train_loader = DataLoader(
         train_ds, batch_size=32, shuffle=True,
         num_workers=4, collate_fn=collate_fn
@@ -212,9 +212,8 @@ def test_data_loader():
         num_workers=4, collate_fn=collate_fn
     )
 
-    # 5️⃣ Quick sanity check
     imgs, caps = next(iter(train_loader))
-    print(f"Batch images: {imgs.shape}")     # e.g. torch.Size([32, 3, 224, 224])
+    print(f"Batch images: {imgs.shape}")
     print(f"Batch captions (first 3): {caps[:3]}")
 
 
@@ -240,9 +239,49 @@ def init_testing():
     print(f"Logits shape: {logits.shape}, Loss: {loss.item():.4f}")
 
 
+def train_test_model(config):
+    tf = transforms.Compose([
+        transforms.Resize((224, 224)),
+        transforms.ToTensor(),
+        # optional: add Norm
+    ])
+
+    dataset = Flickr30kDataset(
+        images_root="/Users/justinbarry/projects/flickr30k_entities/flickr30k/Images",
+        captions_file="/Users/justinbarry/projects/flickr30k_entities/flickr30k/captions.txt",
+        transform=tf
+    )
+
+    show_random_samples_sequential(dataset, num_samples=10)
+
+    n = len(dataset)
+    n_train, n_val = int(n * 0.8), n - n_train
+    train_ds, val_ds = torch.utils.data.random_split(dataset, [n_train, n_val])
+
+    train_loader = DataLoader(
+        train_ds, batch_size=32, shuffle=True,
+        num_workers=4, collate_fn=collate_fn
+    )
+    val_loader = DataLoader(
+        val_ds, batch_size=32, shuffle=False,
+        num_workers=4, collate_fn=collate_fn
+    )
+
+
 def main():
+    env = os.environ.get("ENV", "local")
+    print(f"env={env}")
+    config = u.load_config(path="../config/base.yaml", env=env)
+    print("Configuration loaded")
+    config.env = env
+    print(f"Seed {config.seed} Device {device}")
+
+    if device == 'cuda':
+        torch.set_float32_matmul_precision('high')
+
     # init_testing()
-    test_data_loader()
+    # test_data_loader()
+    train_test_model(config)
 
 
 if __name__ == "__main__":

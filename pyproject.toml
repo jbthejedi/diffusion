@@ -13,6 +13,7 @@ packages = [
   { include = "vae" },
   { include = "clip" },
   { include = "transform" },
+  { include = "utils" },
 ]
 
 dependencies = [
