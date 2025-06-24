@@ -2,7 +2,7 @@ import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import transform.transformer_modules as tm
+import diffusion.transform.transformer_modules as tm
 
 
 class VisionTransformer(nn.Module):

@@ -1,7 +1,7 @@
 [project]
-name = "vae"
+name = "diffusion"
 version = "0.0.1"
-description = "Implementation of vae"
+description = "Implementation of diffusion model"
 authors = [
     {name = "Justin Barry",email = "justinbarrythejedi@gmail.com"}
 ]
@@ -10,10 +10,7 @@ readme = "README.md"
 requires-python = "^3.10"
 
 packages = [
-  { include = "vae" },
-  { include = "clip" },
-  { include = "transform" },
-  { include = "utils" },
+  { include = "diffusion" },
 ]
 
 dependencies = [

@@ -12,10 +12,10 @@ from torchvision import transforms as T
 from torch.utils.data import DataLoader, Dataset, random_split, Subset
 from PIL import Image
 from transformers import CLIPTokenizer
-from utils import utils as u
 from omegaconf import OmegaConf
 
-from clip.models.clip_run_1 import *
+from diffusion.clip.models.clip_run_1 import *
+from diffusion.utils import utils as u
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
