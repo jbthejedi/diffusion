@@ -1,29 +1,50 @@
-name: vae-aek-no-skip
-data_root: /Users/justinbarry/projects/data/
-dataset_name: 'celeba'
-# dataset_name: 'cifar10'
-# dataset_name: 'mnist'
+# Model architecture
+img_size:       224        # Input resolution (square)
+patch_size:     32         # 224/32=7×7 patches
+embed_dim:      512        # ViT hidden size
+proj_dim:       512        # Final CLIP embedding size
+vision_depth:   6          # Number of Transformer blocks in vision encoder
+text_depth:     6          # Number of Transformer blocks in text encoder
+num_heads:      8          # Attention heads (512/8=64 head size)
+cw_size:        128 # Max caption length (OpenAI CLIP default)
 
-batch_size: 8
-image_size: 64
-# image_size: 128
-# image_size: 28
-n_epochs: 3
-num_channels: 3
-# num_channels: 1
+# Optimization
+optimizer:      AdamW
+lr:           1e-4       # base learning rate
+betas:        [0.9,0.98]
+weight_decay: 0.02       # small weight decay to regularize
+batch_size:     32         # per‐GPU; increase if you have memory
+n_epochs:         2          # watch for overfitting
+grad_clip:      1.0        # optional gradient clipping
 
-latent_dims: 128
-latent_channels: 4
-num_groups: 32
+# LR schedule
+scheduler:      cosine_with_warmup
+warmup_steps: 500        # or ~10% of total steps
+total_steps:  epoch_count * (N_images/batch_size)
 
-num_workers: 4
+# Contrastive specifics
+init_logit_scale: log(1/0.07)    # lets you start at temperature=0.07
+temperature:      0.07
 
-artifact_name: jbarry-team/${project}/${name}-best-model:latest
-download_data: False
-wandb_mode: disabled
+# Data augmentation (vision)
+train_transforms:
+  - RandomResizedCrop(224, scale=(0.8,1.0))
+  - RandomHorizontalFlip(p=0.5)
+  - ColorJitter(0.4,0.4,0.4,0.1)
+  - ToTensor()
+  - Normalize(mean=[0.481,0.457,0.408], std=[0.268,0.261,0.275])
+
+val_transforms:
+  - Resize(256)
+  - CenterCrop(224)
+  - ToTensor()
+  - Normalize(mean=[0.481,0.457,0.408], std=[0.268,0.261,0.275])
 
 test_run: True
-sample_size: 300
+sample_size: 400
+
+name: vae-aek-no-skip
+data_root: /Users/justinbarry/projects/data/
 
 local_visualization: False
 save_model: False
@@ -40,3 +61,9 @@ summary: False
 # model_type: conv
 model_type: aekl
 compile: False
+
+artifact_name: jbarry-team/${project}/${name}-best-model:latest
+wandb_mode: disabled
+
+images_root: /Users/justinbarry/projects/flickr30k_entities/flickr30k/Images
+captions_file: /Users/justinbarry/projects/flickr30k_entities/flickr30k/captions.txt
