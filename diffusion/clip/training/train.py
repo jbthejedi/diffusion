@@ -105,7 +105,7 @@ def show_random_samples_sequential(dataset, num_samples=5):
         plt.close()
 
 
-def test_data_loader():
+def test_data_loader(config):
     tf = T.Compose([
         T.Resize((224, 224)),
         T.ToTensor(),
@@ -113,8 +113,8 @@ def test_data_loader():
     ])
 
     dataset : Dataset = Flickr30kDataset(
-        images_root="/Users/justinbarry/projects/flickr30k_entities/flickr30k/Images",
-        captions_file="/Users/justinbarry/projects/flickr30k_entities/flickr30k/captions.txt",
+        images_root=f"{config.data_root}/flickr30k/Images",
+        captions_file=f"{config.data_root}/flickr30k/captions.txt",
         transform=tf,
     )
 
@@ -163,14 +163,14 @@ def init_testing():
     print(f"Logits shape: {logits.shape}, Loss: {loss.item():.4f}")
 
 
-def get_norm_mu_sigma():
+def get_norm_mu_sigma(config):
     # Dataset mean: [0.44408291578292847, 0.4211477041244507, 0.38473448157310486]
     # Dataset std:  [0.2750486731529236, 0.26723721623420715, 0.2765313982963562]
 
     tf = T.Compose([T.Resize((224,224)), T.ToTensor()])
     ds = Flickr30kDataset(
-        images_root="/Users/justinbarry/projects/flickr30k_entities/flickr30k/Images",
-        captions_file="/Users/justinbarry/projects/flickr30k_entities/flickr30k/captions.txt",
+        images_root=f"{config.data_root}/flickr30k/Images",
+        captions_file=f"{config.data_root}/flickr30k/captions.txt",
         transform=tf
     )
     loader = DataLoader(ds, batch_size=64, num_workers=4)
@@ -212,7 +212,11 @@ def get_dataset(config):
         T.Normalize(mean, std),
     ])
 
-    base_ds = Flickr30kDataset(config.images_root, config.captions_file, transform=None)
+    base_ds = Flickr30kDataset(
+        f"{config.data_root}/flickr30k/Images",
+        f"{config.data_root}/flickr30k/captions.txt",
+        transform=None
+    )
     if config.test_run:
         idxs = random.sample(range(len(base_ds)), config.sample_size)
         base_ds = Subset(base_ds, idxs)
@@ -224,11 +228,19 @@ def get_dataset(config):
     val_inds   = perm[n_train:]
 
     train_ds = Subset(
-        Flickr30kDataset(config.images_root, config.captions_file, transform=train_tf),
+        Flickr30kDataset(
+            f"{config.data_root}/flickr30k/Images",
+            f"{config.data_root}/flickr30k/captions.txt",
+            transform=train_tf
+        ),
         train_inds
     )
     val_ds = Subset(
-        Flickr30kDataset(config.images_root, config.captions_file, transform=val_tf),
+        Flickr30kDataset(
+            f"{config.data_root}/flickr30k/captions.txt",
+            f"{config.data_root}/flickr30k/captions.txt",
+            transform=val_tf
+        ),
         val_inds
     )
 
@@ -352,8 +364,8 @@ def main():
         torch.set_float32_matmul_precision('high')
 
     # init_testing()
-    # test_data_loader()
-    # get_norm_mu_sigma()
+    # test_data_loader(config)
+    # get_norm_mu_sigma(config)
 
     train_test_model(config)
 

@@ -1,12 +1,9 @@
 seed: 1337
-project: vae-celeba
+project: clip-flickr30k
 p_dropout: 0.1
 lr: 1e-4
 p_train_len: 0.9
 
-kl_clip: 1.0
-kl_start: 1.0
-kl_end: 1.0
-kl_weight: 1.0
-
-percep_weight: 1.0
+betas:        [0.9,0.98]
+grad_clip:      1.0        # optional gradient clipping
+weight_decay: 0.02       # small weight decay to regularize
