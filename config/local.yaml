@@ -9,7 +9,7 @@ proj_dim:       512        # Final CLIP embedding size
 vision_depth:   6          # Number of Transformer blocks in vision encoder
 text_depth:     6          # Number of Transformer blocks in text encoder
 num_heads:      8          # Attention heads (512/8=64 head size)
-cw_size:        128 # Max caption length (OpenAI CLIP default)
+cw_size:        128        # Max caption length (OpenAI CLIP default)
 
 # Optimization
 batch_size:     32         # per‐GPU; increase if you have memory

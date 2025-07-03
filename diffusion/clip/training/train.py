@@ -78,8 +78,8 @@ class CLIPCollator:
             max_length=self.max_length,
             return_tensors="pt"
         )
-        input_ids = tokenized.input_ids.to(self.device)
-        attention_mask = tokenized.attention_mask.to(self.device)
+        input_ids = tokenized.input_ids
+        attention_mask = tokenized.attention_mask
 
         return imgs, input_ids, attention_mask
 

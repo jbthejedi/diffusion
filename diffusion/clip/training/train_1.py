@@ -369,14 +369,56 @@ def train_test_model(config):
         tqdm.write(f'Epoch {epoch}/{config.n_epochs+1}')
         with tqdm(train_loader, desc="Training") as pbar:
             model.train()
-            train_loss = []
+            train_losses = []
             for images, input_ids, att_mas in pbar:
                 images = images.to(device)
                 input_ids = input_ids.to(device)
                 att_mask = att_mask.to(device)
 
-                logits, _, _ = model(images, inputs_ids, )
-                
+                logits, _, _ = model(images, input_ids, att_mask)
+                loss = ContrastiveLoss()(logits)
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+                train_losses.append(loss.item())
+                pbar.set_postfix(loss=f"{loss:.4f}")
+            train_epoch_loss = sum(train_losses)/len(train_losses)
+            tqdm.write(f"Train Loss {train_epoch_loss:.4f}")
+
+        with tqdm(val_loader, desc="Validation") as pbar:
+            model.eval()
+            eval_losses = []
+            with torch.no_grad():
+                for images, input_ids, att_mask in pbar:
+                    images = images.to(device)
+                    input_ids = input_ids.to(device)
+                    att_mask = att_mask.to(device)
+                    logits, _, _ = model(images, input_ids, att_mask)
+                    loss = ContrastiveLoss()(logits)
+
+                    eval_losses.append(loss.item())
+                    pbar.set_postfix(loss=f"{loss:.4f}")
+                val_epoch_loss = sum(eval_losses) / len(eval_losses)
+                tqdm.write(f"Val Loss {val_epoch_loss:.4f}")
+
+        if config.save_model and (val_epoch_loss < best_val_loss):
+            best_val_loss = val_epoch_loss
+            tqdm.write(f"New best val loss: {best_val_loss:.4f} — overwriting best-model.pth")
+            if config.compile:
+                torch.save(model._orig_mod.state_dict(), "best-model.pth")
+            else:
+                torch.save(model.state_dict(), "best-model.pth")
+        wandb.log({
+            "epoch": epoch,
+            "train/loss": train_epoch_loss,
+            "val/loss": val_epoch_loss,
+        })
+    if config.save_model:
+        tqdm.write("Logging final best-model.pth to wandb as a single artifact…")
+        artifact = wandb.Artifact(name=f"{config.name}-best-model", type="model")
+        artifact.add_file("best-model.pth")
+        wandb.log_artifact(artifact)
+        tqdm.write("Done.") 
 
 
 def main():
