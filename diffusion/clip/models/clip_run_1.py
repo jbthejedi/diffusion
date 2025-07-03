@@ -8,7 +8,7 @@ import diffusion.transformers.transformer_modules as tm
 class VisionTransformer(nn.Module):
     def __init__(
         self, img_size=224, patch_size=32, in_ch=3, embed_dim=512,
-        depth=6, num_heads=8, mlp_ratio=4.0, qkv_bias=True, dropout=0.1
+        depth=6, num_heads=8, mlp_ratio=4.0, qkv_bias=True, dropout=0.1,
     ):
         super().__init__()
         self.patch_embed = tm.PatchEmbedding(img_size, patch_size, in_ch, embed_dim)

@@ -132,7 +132,7 @@ def test_data_loader(config):
         return imgs, caps
 
     train_loader = DataLoader(
-        train_ds, batch_size=32, shuffle=True,
+        train_ds, batch_size=8, shuffle=True,
         num_workers=4, collate_fn=collate_fn
     )
 
@@ -254,12 +254,12 @@ def get_train_val_loader(train_ds, val_ds, config):
         device=device
     )
     train_loader = DataLoader(
-        train_ds, batch_size=32, shuffle=True,
+        train_ds, batch_size=config.batch_size, shuffle=True,
         num_workers=4,
         collate_fn=collator
     )
     val_loader = DataLoader(
-        val_ds, batch_size=32, shuffle=False,
+        val_ds, batch_size=config.batch_size, shuffle=False,
         num_workers=4,
         collate_fn=collator
     )
@@ -303,11 +303,12 @@ def train_test_model(config):
             model.train()
             train_losses = []
             for images, input_ids, _ in pbar: # TODO use attn_mask
+                optimizer.zero_grad()
+
                 images, input_ids = images.to(device), input_ids.to(device)
                 logits, _, _ = model(images, input_ids)
                 loss = ContrastiveLoss()(logits)
 
-                optimizer.zero_grad()
                 
                 loss.backward()
                 optimizer.step()

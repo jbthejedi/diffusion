@@ -27,7 +27,7 @@ class PatchEmbed(nn.Module):
 class VisionTransformer(nn.Module):
     def __init__(self,
         img_size=224, patch_size=32, in_chans=3, embed_dim=512,
-        depth=6, num_heads=8, mlp_ratio=4.0, qkv_bias=True, dropout=0.1
+        depth=6, num_heads=8, mlp_ratio=4.0, qkv_bias=True, dropout=0.1,
     ):
         super().__init__()
         self.patch_embed = PatchEmbed(img_size, patch_size, in_chans, embed_dim)
@@ -87,7 +87,7 @@ class TextTransformer(nn.Module):
 class CLIPModel(nn.Module):
     def __init__(self,
         img_size=224, patch_size=32, vocab_size=49408, max_len=77,
-        embed_dim=512, proj_dim=512, vision_depth=6, text_depth=6, num_heads=8
+        embed_dim=512, proj_dim=512, vision_depth=6, text_depth=6, num_heads=8,
     ):
         super().__init__()
         # encoders
@@ -96,13 +96,15 @@ class CLIPModel(nn.Module):
             patch_size=patch_size,
             embed_dim=embed_dim,
             depth=vision_depth,
-            num_heads=num_heads)
+            num_heads=num_heads,
+            )
         self.textual = TextTransformer(
             vocab_size=vocab_size,
             max_len=max_len,
             embed_dim=embed_dim,
             depth=text_depth,
-            num_heads=num_heads)
+            num_heads=num_heads,
+        )
         # projection layers
         self.visual_proj = nn.Linear(embed_dim, proj_dim)
         self.textual_proj = nn.Linear(embed_dim, proj_dim)
