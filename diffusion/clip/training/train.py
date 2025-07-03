@@ -213,8 +213,8 @@ def get_dataset(config):
     ])
 
     base_ds = Flickr30kDataset(
-        f"{config.data_root}/flickr30k/Images",
-        f"{config.data_root}/flickr30k/captions.txt",
+        images_root=f"{config.data_root}/flickr30k/Images",
+        captions_file=f"{config.data_root}/flickr30k/captions.txt",
         transform=None
     )
     if config.test_run:
@@ -237,7 +237,7 @@ def get_dataset(config):
     )
     val_ds = Subset(
         Flickr30kDataset(
-            f"{config.data_root}/flickr30k/captions.txt",
+            f"{config.data_root}/flickr30k/Images",
             f"{config.data_root}/flickr30k/captions.txt",
             transform=val_tf
         ),
