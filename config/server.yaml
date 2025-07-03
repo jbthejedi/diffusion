@@ -1,5 +1,5 @@
 name: first-run
-data_root: /workspace/data/
+data_root: /workspace/flickr30k_entities
 
 # Model architecture
 img_size:       224        # Input resolution (square)

@@ -10,6 +10,7 @@ from omegaconf import OmegaConf
 from utils.utils import load_config
 from transformers import CLIPTokenizer
 from PIL import Image
+from tqdm import tqdm
 
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -175,12 +176,12 @@ class CLIPModel(nn.Module):
         self.textual_proj = nn.Linear(embed_dim, proj_dim)
         self.logit_scale = nn.Parameter(torch.ones([]) * math.log(1 / 0.07))
     
-    def forward(self, image, text):
-        image = self.visual_proj(self.visual(image))   # (B, embed_dim)
-        text = self.textual_proj(self.textual(text))   # (B, embed_dim)
+    def forward(self, image, text, att_mask):
+        image = self.visual_proj(self.visual(image))             # (B, embed_dim)
+        text = self.textual_proj(self.textual(text, att_mask))   # (B, embed_dim)
 
-        i_proj = F.normalize(image)                      # (B, proj_dim)
-        t_proj = F.normalize(text)                       # (B, proj_dim)
+        i_proj = F.normalize(image)                              # (B, proj_dim)
+        t_proj = F.normalize(text)                               # (B, proj_dim)
 
         # (B, proj_dim) @ (proj_dim, B) -> (B, B) : similarity matrix
         logits = self.logit_scale.exp() * i_proj @ t_proj.t()
@@ -343,6 +344,40 @@ def train_test_model(config):
         mode=config.wandb_mode,
     )
     train_ds, val_ds = get_dataset(config)
+    train_loader, val_loader = get_train_val_loader(train_ds, val_ds, config)
+
+    tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-base-patch32")
+    vocab_size = tokenizer.vocab_size #49_408
+
+    model = CLIPModel(
+        img_size=config.img_size,
+        patch_size=config.patch_size,
+        vocab_size=vocab_size,
+        cw_size=config.cw_size,
+        embed_dim=config.embed_dim,
+        proj_dim=config.proj_dim,
+        vision_depth=config.vision_depth,
+        text_depth=config.text_depth,
+        num_heads=config.num_heads,
+    )
+    if config.compile: model = torch.compile(model)
+    model = model.to(device)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=config.lr)
+
+    best_val_loss = float('inf')
+    for epoch in range(1, config.n_epochs+1):
+        tqdm.write(f'Epoch {epoch}/{config.n_epochs+1}')
+        with tqdm(train_loader, desc="Training") as pbar:
+            model.train()
+            train_loss = []
+            for images, input_ids, att_mas in pbar:
+                images = images.to(device)
+                input_ids = input_ids.to(device)
+                att_mask = att_mask.to(device)
+
+                logits, _, _ = model(images, inputs_ids, )
+                
+
 
 def main():
     env = os.environ.get("ENV", "local")
