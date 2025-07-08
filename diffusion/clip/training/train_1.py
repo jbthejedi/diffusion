@@ -4,7 +4,7 @@ import torch.nn.functional as F
 import torchvision.transforms as T
 
 from pathlib import Path
-from torch.utils.data import DataLoader, DataSet, random_split, Subset
+from torch.utils.data import DataLoader, Dataset, random_split, Subset
 from torchvision.datasets import Flickr30k
 from omegaconf import OmegaConf
 from utils.utils import load_config
@@ -19,7 +19,7 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 class PatchEmbedding(nn.Module):
     def __init__(self, img_size=224, patch_size=32, in_ch=3, embed_dim=512):
         super().__init__()
-        self.proj = nn.Conv2d(in_ch, in_ch, patch_size, patch_size)
+        self.proj = nn.Conv2d(in_ch, embed_dim, patch_size, patch_size)
         n = (img_size // patch_size) ** 2
         self.cls_token = nn.Parameter(torch.zeros(1, 1, embed_dim))
         self.pos_embed = nn.Parameter(torch.zeros(1, n + 1, embed_dim))
@@ -107,7 +107,7 @@ class TransformerBlock(nn.Module):
 
     def forward(self, x, mask=None):
         x = x + self.mha(self.ln1(x), mask)
-        x = x + self.ffwd(self.ln2(x), mask)
+        x = x + self.ffwd(self.ln2(x))
         return x
 
 class VisionTransformer(nn.Module):
@@ -202,7 +202,7 @@ class ContrastiveLoss(nn.Module):
         loss_t2i = self.loss_fn(logits.t() / self.temperature, labels)
         return (loss_i2t + loss_t2i) / 2
 
-class Flickr30kDataset(DataSet):
+class Flickr30kDataset(Dataset):
     def __init__(self, images_root, captions_file, transform=None):
         self.images_root = images_root
         self.transform = transform
@@ -324,12 +324,14 @@ def get_train_val_loader(train_ds, val_ds, config):
         device=device
     )
     train_loader = DataLoader(
-        train_ds, batch_size=32, shuffle=True,
+        train_ds, batch_size=config.batch_size,
+        shuffle=True,
         num_workers=4,
         collate_fn=collator
     )
     val_loader = DataLoader(
-        val_ds, batch_size=32, shuffle=False,
+        val_ds, batch_size=config.batch_size,
+        shuffle=False,
         num_workers=4,
         collate_fn=collator
     )
