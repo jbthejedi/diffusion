@@ -89,8 +89,7 @@ class CLIPModel(nn.Module):
         i_proj = F.normalize(i_proj, dim=-1)
         t_proj = F.normalize(t_proj, dim=-1)
         # scaled cosine similarity
-        logit_scale = self.logit_scale.exp()
-        logits = logit_scale * i_proj @ t_proj.t()
+        logits = self.logit_scale.exp() * i_proj @ t_proj.t()
         return logits, i_proj, t_proj
     
 
@@ -104,6 +103,6 @@ class ContrastiveLoss(nn.Module):
         # logits: [B, B]
         B = logits.size(0)
         labels = torch.arange(B, device=logits.device)
-        loss_i2t = self.loss_fn(logits / self.temperature, labels)
-        loss_t2i = self.loss_fn(logits.t() / self.temperature, labels)
+        loss_i2t = self.loss_fn(logits, labels)
+        loss_t2i = self.loss_fn(logits.t(), labels)
         return (loss_i2t + loss_t2i) / 2
