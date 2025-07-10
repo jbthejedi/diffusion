@@ -94,9 +94,8 @@ class CLIPModel(nn.Module):
     
 
 class ContrastiveLoss(nn.Module):
-    def __init__(self, temperature=0.07):
+    def __init__(self):
         super().__init__()
-        self.temperature = temperature
         self.loss_fn = nn.CrossEntropyLoss()
 
     def forward(self, logits):
