@@ -197,8 +197,63 @@ class ContrastiveLoss(nn.Module):
         return (loss_i2t + loss_t2i) / 2
 
 class Flickr30kDataset(Dataset):
-    def __init__(self):
-        pass
+    def __init__(self, images_root : str, captions_file : str, transform=None):
+        self.images_root = images_root
+        self.transform = transform
+
+        self.captions = {}
+        with Path(captions_file).open('r') as f:
+            for line in f:
+                line = line.strip()
+                parts = line.split(None, 1)
+                if parts < 2:
+                    continue
+                img_id, caption = parts
+                fn = img_id.split('#')[0].strip().strip('",')
+                self.captions.setdefault(fn, []).append(caption)
+        self.filenames = sorted(self.captions.keys())
+    
+    def __len__(self):
+        return len(self.filenames)
+    
+    def __getitem__(self, idx):
+        """
+        Get filename
+        Open and transform image
+        Attach random caption and return image-caption pair
+        """
+        fn = self.filenames[idx]
+        img_path = os.path.join(self.images_root, fn)
+        Image.open(img_path).convert("RGB")
+        if self.transform:
+            img = self.transform(img)
+        cap = random.choice(self.captions[fn])
+
+class CLIPCollator:
+    def __init__(
+        self, tokenizer_name='openai/clip-vit-base-patch32', max_length=77, device='cpu'
+    ):
+        self.tokenizer = CLIPTokenizer.from_pretrained(tokenizer_name)
+        self.max_length = max_length
+        self.device = device
+
+    def __call__(self, batch):
+        """
+        Tokenize captions
+        """
+        imgs, caps = zip(*batch)
+        imgs = torch.stack(imgs, dim=0)
+
+        tokenized = self.tokenizer(
+            list(caps),
+            padding='max_length',
+            truncation=True,
+            max_length=self.max_length,
+            return_tensors='pt' # return as PyTorch tensor
+        )
+        input_ids = tokenized.input_ids
+        attention_mask = tokenized.attention_mask
+        return imgs, input_ids, attention_mask
 
 def main():
     env = os.environ.get("ENV", "local")

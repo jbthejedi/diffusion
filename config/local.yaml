@@ -16,26 +16,10 @@ batch_size:     32         # per‐GPU; increase if you have memory
 n_epochs:         2          # watch for overfitting
 
 # Contrastive specifics
-init_logit_scale: log(1/0.07)    # lets you start at temperature=0.07
 temperature:      0.07
-
-# Data augmentation (vision)
-train_transforms:
-  - RandomResizedCrop(224, scale=(0.8,1.0))
-  - RandomHorizontalFlip(p=0.5)
-  - ColorJitter(0.4,0.4,0.4,0.1)
-  - ToTensor()
-  - Normalize(mean=[0.481,0.457,0.408], std=[0.268,0.261,0.275])
-
-val_transforms:
-  - Resize(256)
-  - CenterCrop(224)
-  - ToTensor()
-  - Normalize(mean=[0.481,0.457,0.408], std=[0.268,0.261,0.275])
 
 test_run: True
 sample_size: 400
-
 
 local_visualization: False
 save_model: False
@@ -47,9 +31,6 @@ train_model: True
 summary: False
 # summary: True
 
-# model_type: mlp
-# model_type: unet
-# model_type: conv
 model_type: aekl
 compile: False
 
