@@ -295,6 +295,7 @@ def train_test_model(config):
                 optimizer.zero_grad()
 
                 images, token_ids = images.to(device), token_ids.to(device)
+                attn_mask = attn_mask.to(device)
                 logits, _, _ = model(images, token_ids)
                 loss = ContrastiveLoss()(logits)
 
@@ -314,6 +315,7 @@ def train_test_model(config):
             with torch.no_grad():
                 for images, token_ids, _ in pbar:
                     images, token_ids = images.to(device), token_ids.to(device)
+                    attn_mask = attn_mask.to(device)
                     logits, _, _ = model(images, token_ids)
                     loss = ContrastiveLoss()(logits)
                     

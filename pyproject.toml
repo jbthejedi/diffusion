@@ -61,6 +61,8 @@ urllib3         = "==2.4.0"
 gdown           = ">=5.2.0,<6.0.0"
 lpips           = ">=0.1.4,<0.2.0"
 transformers = "^4.53.0"
+diffusers = "^0.34.0"
+accelerate = "^1.9.0"
 
 [tool.poetry.dev-dependencies]
 setuptools      = ">=80.9.0,<81.0.0"
